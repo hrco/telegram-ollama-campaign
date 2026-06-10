@@ -1,0 +1,55 @@
+import os
+import jwt
+import bcrypt
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+from fastapi import Request
+from fastapi.responses import RedirectResponse
+
+SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production-use-secrets-token-hex")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "changeme")
+TOKEN_EXPIRE_HOURS = 24
+COOKIE_NAME = "campaignos_session"
+
+
+def get_password_hash(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
+
+
+def create_token(username: str) -> str:
+    payload = {
+        "sub": username,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRE_HOURS),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+
+def verify_token(token: str) -> Optional[str]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return payload.get("sub")
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        return None
+
+
+def check_credentials(username: str, password: str) -> bool:
+    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+
+
+class NotAuthenticatedException(Exception):
+    pass
+
+
+def require_auth(request: Request) -> str:
+    token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        raise NotAuthenticatedException()
+    username = verify_token(token)
+    if not username:
+        raise NotAuthenticatedException()
+    return username
