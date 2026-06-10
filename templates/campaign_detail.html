@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} • CampaignOS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0a0a0c] text-zinc-200">
+<div class="max-w-4xl mx-auto px-6 py-8">
+    <a href="/campaigns" class="text-sm text-zinc-400">← All Campaigns</a>
+    <h1 class="text-3xl font-semibold mt-3 tracking-tight">Campaign #{{ campaign_id }}</h1>
+
+    <!-- Continue Phase Form -->
+    <div class="mt-8 mb-6">
+        <form action="/campaign/{{ campaign_id }}/continue" method="post" class="flex gap-x-3">
+            <select name="phase" class="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-3 text-sm">
+                <option value="research">Research Phase</option>
+                <option value="content">Content Phase</option>
+                <option value="schedule">Distribution Schedule</option>
+            </select>
+            <button type="submit" 
+                    class="bg-blue-600 hover:bg-blue-500 px-8 rounded-2xl text-sm font-medium">
+                Run Next Phase
+            </button>
+        </form>
+    </div>
+
+    <!-- Messages / Phases -->
+    <div class="space-y-6">
+        {% for msg in messages %}
+        <div class="card p-7 rounded-3xl">
+            <div class="flex justify-between items-center mb-4">
+                <div class="uppercase tracking-[1.5px] text-[10px] font-medium text-zinc-500">
+                    {{ msg.phase or 'message' }}
+                </div>
+                <div class="text-xs text-zinc-500">{{ msg.role }}</div>
+            </div>
+            <div class="prose prose-invert text-sm whitespace-pre-wrap">{{ msg.content }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+</body>
+</html>
