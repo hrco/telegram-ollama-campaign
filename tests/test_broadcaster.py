@@ -14,7 +14,7 @@ def make_bot(message_id=101, raise_flood=False):
     bot = MagicMock()
     if raise_flood:
         from aiogram.exceptions import TelegramRetryAfter
-        bot.send_message = AsyncMock(side_effect=TelegramRetryAfter(retry_after=1))
+        bot.send_message = AsyncMock(side_effect=TelegramRetryAfter(method=MagicMock(), message="Flood", retry_after=1))
     else:
         result = MagicMock()
         result.message_id = message_id
@@ -50,7 +50,10 @@ async def test_send_with_retry_success_after_flood():
     result = MagicMock()
     result.message_id = 99
     bot.send_message = AsyncMock(
-        side_effect=[TelegramRetryAfter(retry_after=0), result]
+        side_effect=[
+            TelegramRetryAfter(method=MagicMock(), message="Flood control", retry_after=0),
+            result
+        ]
     )
     msg_id = await send_with_retry(bot, "-100x", "msg", retries=3)
     assert msg_id == 99
