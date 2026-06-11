@@ -9,17 +9,57 @@
 
 ## TL;DR — where we actually are
 
-The v2 **backend modules are built and green**: `auth.py`, `broadcaster.py`, `scheduler.py`,
-and the extended `database.py` schema (channels / scheduled_posts / send_analytics) all exist
-and **16/16 tests pass** (`pytest -q`). Commits land cleanly on `master`.
+**(Updated 2026-06-12.)** P0.1–P0.5 and P1 (mobile-first UI, vendored assets) are **done and
+committed**; **19/19 tests pass**. The app runs end-to-end: `python main.py` starts bot +
+dashboard + scheduler in one process. The bot's live handle is **@campaignos_bot**
+(id 8976060475). On this box the dashboard runs on **port 8001** (`DASHBOARD_PORT` in `.env`)
+because the `nopanic-icecast` Docker container permanently owns 8000.
 
-**But the app does not work end-to-end yet.** Several features the bot advertises have no
-handler, the dashboard crashes on the campaign routes, nothing can actually be scheduled or
-broadcast from the UI, and the polished mobile UI from Task 8 was never built. **None of the
-"promote it" path works yet** — you can't currently: log into a styled dashboard → generate
-social copy → schedule it → have it broadcast to a Telegram channel.
+**There is uncommitted in-flight work in the working tree** (an LLM provider abstraction,
+`llm.py`) that is **broken as it stands** — see the 2026-06-12 status block below. Finish or
+revert it before anything else.
 
-Fix the blockers in **Priority 0** and we have a demoable, promotable product.
+---
+
+## STATUS 2026-06-12 — instructions for Hermes (start here)
+
+Worktree is dirty: new `llm.py` (ollama/xai provider switch) + matching edits in `bot.py`,
+`dashboard.py`, `requirements.txt`, `.env.example`, plus an unrelated guardrail edit in
+`campaign_protocol.py` and the untracked `docs/launch-copy.md`. Tests are green (19/19) but
+**only because no test covers the generate path** — do not read green as working.
+
+**Do these in order:**
+
+1. **Fix the `llm.generate()` return-type bug (blocker).** `llm.generate()` returns a plain
+   `str`, but every caller still unwraps the old ollama dict shape —
+   `resp['message']['content']` in `bot.py` (×2) and `dashboard.py` (×2). Every campaign /
+   social-copy generation crashes with `TypeError` at runtime. Decide one contract (plain
+   `str` is cleaner), fix callers, and add a test that monkeypatches the provider and
+   exercises one bot and one dashboard generate path — that's the missing coverage that let
+   this slip.
+2. **Fix `requirements.txt` (blocker).** Last line is mangled: `pytest-asyncio>=0.23openai>=1.0`
+   — missing newline. Split into two lines.
+3. **Get a human call on the xAI provider before committing it.** Project CLAUDE.md says
+   **local-first, no cloud-LLM dependency in the runtime** — an `LLM_PROVIDER=xai` path with
+   a paid `XAI_API_KEY` cuts against that and brushes the **no-real-spend** red line. Ollama
+   stays the default either way. Ask the founder: ship it as an optional escape hatch (and
+   amend CLAUDE.md), or revert `llm.py` and keep the runtime pure-local. Don't silently merge.
+4. **Commit in separate logical commits** once green: (a) the `campaign_protocol.py`
+   social-copy guardrail ("do NOT invent statistics…") — this closes a known TODO, it's
+   independent of llm.py; (b) `docs/launch-copy.md` (`docs:`); (c) the provider abstraction
+   if approved (`feat:`), bugs fixed, with its tests.
+5. **P0.6 manual smoke** — the only unchecked P0. Needs live Ollama + a real Telegram channel
+   the bot admins: login at `http://localhost:8001` → create campaign → `/social` in Telegram
+   → add channel → schedule a post 2 min out → confirm broadcast + `send_analytics` row.
+   Follow the checklist in P0.6 below.
+6. **Token rotation is still pending (human-only).** The bot token was once leaked and scrubbed
+   from history; the founder must revoke/rotate via BotFather, then update `.env` and restart.
+   Don't print the token anywhere; verify it with `getMe` returning the bot id only.
+
+**Operational notes:** run everything from `.venv` (`source .venv/bin/activate`). The app was
+last started manually in a Claude Code session (not supervised) — assume it's down and start
+it yourself; logs were going to `/tmp/campaignos.log`. A systemd user service with
+`EnvironmentFile=.env` (chmod 600) would be the durable fix and is worth proposing.
 
 ---
 
@@ -106,6 +146,12 @@ Capture this as a short checklist in the PR description (evidence, not assertion
 ---
 
 ## Priority 1 — make it look promotable (Task 8 UI)
+
+> **STATUS 2026-06-12: DONE.** `templates/base.html` exists, all pages extend it, Alpine +
+> Font Awesome are vendored under `/static` (commit f2fc43c). Tailwind intentionally stays on
+> the Play CDN for now (self-hosting deferred). Font Awesome **webfonts** are not vendored —
+> icons fall back silently; pages use emoji, so it's cosmetic only. The rest of this section
+> is kept for context.
 
 The whole point of "promote ASAP" is screenshots/video that don't look like a toy.
 **Plan Task 8 (mobile-first UI) was never built:**
