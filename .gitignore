@@ -1,0 +1,22 @@
+# Secrets — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Local data / runtime
+campaigns.db
+*.sqlite
+*.sqlite3
+.grok_usage/
+
+# OS / editor
+.DS_Store
+*.swp
