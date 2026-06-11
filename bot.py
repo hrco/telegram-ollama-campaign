@@ -72,6 +72,9 @@ async def cmd_start(message: Message, state: FSMContext):
         "Available commands:\n"
         "/new — Start a new campaign\n"
         "/campaigns — View your campaigns\n"
+        "/social — Generate social copy for current campaign\n"
+        "/channels — List connected Telegram channels\n"
+        "/resume — Resume latest campaign\n"
         "/help — Show help"
     )
 
@@ -163,6 +166,48 @@ async def cmd_resume(message: Message):
         f"Topic: {campaign['topic']}\n\n"
         f"Last activity: {messages[-1]['phase'] if messages else 'None'}"
     )
+
+
+@router.message(Command("social"))
+async def cmd_social(message: Message):
+    campaign = await get_current_campaign(message.from_user.id)
+    if not campaign:
+        await message.answer("No active campaign. Use /new to start one.")
+        return
+
+    await message.answer(f"🎨 Generating social copy for campaign <b>#{campaign['id']}</b>...")
+
+    try:
+        prompt = get_phase_prompt("social_copy", topic=campaign["topic"], tone="engaging and direct")
+        resp = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+        content = resp["message"]["content"]
+        await save_message(campaign["id"], "assistant", content, "social_copy")
+
+        if len(content) > 3800:
+            await message.answer(content[:3800])
+            await message.answer(content[3800:7600])
+        else:
+            await message.answer(content)
+        await message.answer("✅ Social copy ready. Open the dashboard to schedule it.")
+    except Exception as e:
+        logger.error(f"Error generating social copy: {e}")
+        await message.answer("❌ Failed to generate social copy. Is Ollama running?")
+
+
+@router.message(Command("channels"))
+async def cmd_channels(message: Message):
+    from database import list_channels
+    channels = await list_channels()
+    if not channels:
+        await message.answer(
+            "No channels connected yet.\n"
+            "Add the bot as admin to a channel, then register it in the dashboard under Channels."
+        )
+        return
+    text = "<b>Connected Channels:</b>\n\n"
+    for ch in channels:
+        text += f"• {ch['name']} (<code>{ch['chat_id']}</code>)\n"
+    await message.answer(text)
 
 
 async def main():

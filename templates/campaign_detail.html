@@ -5,41 +5,110 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} • CampaignOS</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0a0a0c; color: #f4f4f5; }
+        .card { background-color: #111113; border: 1px solid #27272a; }
+    </style>
 </head>
-<body class="bg-[#0a0a0c] text-zinc-200">
-<div class="max-w-4xl mx-auto px-6 py-8">
-    <a href="/campaigns" class="text-sm text-zinc-400">← All Campaigns</a>
-    <h1 class="text-3xl font-semibold mt-3 tracking-tight">Campaign #{{ campaign_id }}</h1>
-
-    <!-- Continue Phase Form -->
-    <div class="mt-8 mb-6">
-        <form action="/campaign/{{ campaign_id }}/continue" method="post" class="flex gap-x-3">
-            <select name="phase" class="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-3 text-sm">
-                <option value="research">Research Phase</option>
-                <option value="content">Content Phase</option>
-                <option value="schedule">Distribution Schedule</option>
-            </select>
-            <button type="submit" 
-                    class="bg-blue-600 hover:bg-blue-500 px-8 rounded-2xl text-sm font-medium">
-                Run Next Phase
-            </button>
-        </form>
-    </div>
-
-    <!-- Messages / Phases -->
-    <div class="space-y-6">
-        {% for msg in messages %}
-        <div class="card p-7 rounded-3xl">
-            <div class="flex justify-between items-center mb-4">
-                <div class="uppercase tracking-[1.5px] text-[10px] font-medium text-zinc-500">
-                    {{ msg.phase or 'message' }}
+<body>
+    <div class="max-w-5xl mx-auto px-6">
+        <!-- Header -->
+        <div class="flex justify-between items-center py-8 border-b border-zinc-800">
+            <div class="flex items-center gap-x-3">
+                <div class="w-9 h-9 bg-white rounded-xl flex items-center justify-center">
+                    <span class="text-black font-bold text-xl">C</span>
                 </div>
-                <div class="text-xs text-zinc-500">{{ msg.role }}</div>
+                <span class="font-semibold text-2xl tracking-tight">CampaignOS</span>
             </div>
-            <div class="prose prose-invert text-sm whitespace-pre-wrap">{{ msg.content }}</div>
+            
+            <div class="flex items-center gap-x-8 text-sm">
+                <a href="/" class="text-zinc-400 hover:text-white">Dashboard</a>
+                <a href="/campaigns" class="text-white border-b-2 border-blue-500 pb-1">Campaigns</a>
+                <a href="/channels" class="text-zinc-400 hover:text-white">Channels</a>
+                <a href="/schedule" class="text-zinc-400 hover:text-white">Schedule</a>
+            </div>
+            
+            <div class="flex items-center gap-x-4 text-sm">
+                <span class="text-zinc-400">Hi, {{ username|default('user') }}</span>
+                <a href="/logout" class="text-xs px-3 py-1.5 hover:bg-zinc-900 rounded-xl border border-zinc-800">Logout</a>
+            </div>
         </div>
-        {% endfor %}
+
+        <div class="mt-8">
+            <a href="/campaigns" class="text-sm text-zinc-400 hover:text-white">← All Campaigns</a>
+            <h1 class="text-4xl font-semibold tracking-tight mt-2">Campaign #{{ campaign_id }}</h1>
+        </div>
+
+        <!-- Continue Phase Form -->
+        <div class="mt-8 mb-8">
+            <form action="/campaign/{{ campaign_id }}/continue" method="post" class="flex gap-x-3">
+                <select name="phase" class="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-3 text-sm">
+                    <option value="research">Research Phase</option>
+                    <option value="content">Content Phase</option>
+                    <option value="schedule">Distribution Schedule</option>
+                    <option value="social_copy">Social Copy</option>
+                </select>
+                <button type="submit" 
+                        class="bg-blue-600 hover:bg-blue-500 px-8 rounded-2xl text-sm font-medium">
+                    Run Next Phase
+                </button>
+            </form>
+        </div>
+
+        <!-- Schedule a post -->
+        <div class="card p-6 rounded-2xl mb-8">
+            <h2 class="text-lg font-semibold mb-4">Schedule a post</h2>
+            {% if channels %}
+            <form action="/schedule/new" method="post" class="space-y-3">
+                <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
+                <textarea name="content" rows="4" required placeholder="Paste the copy to broadcast…"
+                          class="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm"></textarea>
+                <div class="flex flex-wrap gap-3">
+                    <select name="channel_id" required
+                            class="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm">
+                        {% for ch in channels %}
+                        <option value="{{ ch.id }}">{{ ch.name }} ({{ ch.chat_id }})</option>
+                        {% endfor %}
+                    </select>
+                    <input type="datetime-local" name="scheduled_at" required
+                           class="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm">
+                    <input type="text" name="recurring_cron" placeholder="cron (optional): m h dom mon dow"
+                           class="flex-1 min-w-[12rem] bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-mono">
+                    <button type="submit"
+                            class="bg-emerald-600 hover:bg-emerald-500 px-8 rounded-2xl text-sm font-medium">
+                        Schedule
+                    </button>
+                </div>
+                <p class="text-xs text-zinc-500">Time is interpreted as UTC. Leave cron blank for a one-off post.</p>
+            </form>
+            {% else %}
+            <p class="text-sm text-zinc-400">
+                No channels connected yet. Add one under
+                <a href="/channels" class="text-blue-400 hover:underline">Channels</a> to schedule a broadcast.
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- Messages -->
+        <div class="space-y-4">
+            {% if messages %}
+                {% for msg in messages %}
+                <div class="card p-6 rounded-2xl">
+                    <div class="flex items-center gap-x-3 mb-3">
+                        <span class="px-3 py-0.5 text-xs rounded-full bg-zinc-800 text-zinc-400">{{ msg.phase|default('message') }}</span>
+                        <span class="text-xs text-zinc-500">{{ msg.role }}</span>
+                    </div>
+                    <div class="prose prose-invert max-w-none text-sm leading-relaxed whitespace-pre-wrap">
+                        {{ msg.content }}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="card p-8 text-center text-zinc-400">
+                    No messages yet for this campaign.
+                </div>
+            {% endif %}
+        </div>
     </div>
-</div>
 </body>
 </html>
