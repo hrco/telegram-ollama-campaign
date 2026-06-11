@@ -1,15 +1,8 @@
 """
-Campaign Protocol v1.0
+Campaign Protocol v2.0
 
 A structured, repeatable system for running high-quality content campaigns
 using a local Ollama model.
-
-Phases:
-1. Research & Positioning
-2. Content Architecture
-3. Asset Generation
-4. Distribution Schedule
-5. Performance Review
 """
 
 from typing import Literal
@@ -56,10 +49,29 @@ Topic: {topic}
 Frequency: {frequency}
 """
     ),
+    "social_copy": CampaignPhase(
+        name="Social Copy Pack",
+        objective="Generate ready-to-post Telegram message variants",
+        prompt_template="""Based on campaign research and content, create 5 ready-to-post Telegram messages.
+
+Each message must have:
+- A sharp hook (first line, max 10 words)
+- Body (2-4 lines, plain language, no corporate speak)
+- Clear call to action (last line)
+
+Vary the angle for each. Keep each under 280 words. Format with --- between messages.
+
+Topic: {topic}
+Tone: {tone}
+""",
+    ),
 }
 
 def get_phase_prompt(phase: str, **kwargs) -> str:
     if phase not in CAMPAIGN_PROTOCOL:
         raise ValueError(f"Unknown phase: {phase}")
+    import re
     template = CAMPAIGN_PROTOCOL[phase].prompt_template
-    return template.format(**kwargs)
+    keys = re.findall(r'\{(\w+)\}', template)
+    filled = {k: kwargs.get(k, f"[{k}]") for k in keys}
+    return template.format(**filled)
