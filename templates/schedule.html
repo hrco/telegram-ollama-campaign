@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-4xl font-semibold tracking-tight">Scheduled Posts</h1>
+    <p class="text-zinc-500 mt-1">Upcoming and past broadcasts</p>
+</div>
+
+<div class="card rounded-2xl overflow-hidden">
+    {% if posts %}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-zinc-950 text-zinc-400">
+            <tr>
+                <th scope="col" class="text-left px-6 py-4 font-normal">Campaign</th>
+                <th scope="col" class="text-left px-6 py-4 font-normal">Channel</th>
+                <th scope="col" class="text-left px-6 py-4 font-normal">Scheduled</th>
+                <th scope="col" class="text-left px-6 py-4 font-normal">Status</th>
+                <th scope="col" class="text-left px-6 py-4 font-normal">Content</th>
+                <th scope="col" class="w-20"><span class="sr-only">Actions</span></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-800">
+            {% for post in posts %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">#{{ post.campaign_id }} {{ post.topic }}</td>
+                <td class="px-6 py-4">{{ post.channel }}</td>
+                <td class="px-6 py-4 font-mono text-xs whitespace-nowrap">{{ post.scheduled_at }}</td>
+                <td class="px-6 py-4">
+                    {% if post.status == 'pending' %}
+                    <span class="px-3 py-0.5 text-xs rounded-full bg-amber-500/10 text-amber-400">pending</span>
+                    {% elif post.status == 'sent' %}
+                    <span class="px-3 py-0.5 text-xs rounded-full bg-emerald-500/10 text-emerald-400">sent</span>
+                    {% else %}
+                    <span class="px-3 py-0.5 text-xs rounded-full bg-red-500/10 text-red-400">{{ post.status }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-xs text-zinc-400 max-w-xs truncate">{{ post.content }}</td>
+                <td class="px-6 py-4 text-right">
+                    {% if post.status == 'pending' %}
+                    <form method="post" action="/schedule/{{ post.id }}/cancel" class="inline">
+                        <button type="submit" class="text-red-400 hover:text-red-300 text-xs">Cancel</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="p-8 text-center text-zinc-500">
+        No scheduled posts yet.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

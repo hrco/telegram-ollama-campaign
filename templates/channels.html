@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Channels{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-4xl font-semibold tracking-tight">Channels</h1>
+    <p class="text-zinc-500 mt-1">Telegram channels the bot can post to</p>
+</div>
+
+<div class="card rounded-2xl p-6 mb-8">
+    <h2 class="font-medium mb-4">Add new channel</h2>
+    <form method="post" action="/channels/add" class="flex flex-col sm:flex-row gap-3">
+        <label for="chat_id" class="sr-only">Chat ID</label>
+        <input type="text" id="chat_id" name="chat_id" placeholder="Chat ID (e.g. -1001234567890)" required
+               class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm">
+        <label for="name" class="sr-only">Channel name</label>
+        <input type="text" id="name" name="name" placeholder="Channel name" required
+               class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm">
+        <button type="submit"
+                class="bg-white text-black px-6 py-2.5 rounded-xl font-medium hover:bg-zinc-200">Add</button>
+    </form>
+</div>
+
+<div class="card rounded-2xl overflow-hidden">
+    {% if channels %}
+    <table class="w-full text-sm">
+        <thead class="bg-zinc-950 text-zinc-400">
+            <tr>
+                <th scope="col" class="text-left px-6 py-4 font-normal">Name</th>
+                <th scope="col" class="text-left px-6 py-4 font-normal">Chat ID</th>
+                <th scope="col" class="w-20"><span class="sr-only">Actions</span></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-800">
+            {% for ch in channels %}
+            <tr>
+                <td class="px-6 py-4">{{ ch.name }}</td>
+                <td class="px-6 py-4 font-mono text-xs text-zinc-400">{{ ch.chat_id }}</td>
+                <td class="px-6 py-4 text-right">
+                    <form method="post" action="/channels/remove/{{ ch.id }}" class="inline">
+                        <button type="submit" class="text-red-400 hover:text-red-300 text-xs">Remove</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="p-8 text-center text-zinc-500">
+        No channels yet. Add your first channel above.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

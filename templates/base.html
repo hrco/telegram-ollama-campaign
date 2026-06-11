@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CampaignOS{% endblock %} • CampaignOS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        [x-cloak] { display: none !important; }
+        body { background-color: #0a0a0c; color: #f4f4f5; }
+        .card { background-color: #111113; border: 1px solid #27272a; }
+        .nav-active { color: white; border-bottom: 2px solid #3b82f6; }
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { 
+            outline: 2px solid #3b82f6; 
+            outline-offset: 2px; 
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <!-- Skip link for accessibility -->
+    <a href="#main-content" 
+       class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-zinc-900 px-4 py-2 rounded-xl z-50">
+        Skip to main content
+    </a>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+        <!-- Header / Navigation -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-6 sm:py-8 border-b border-zinc-800 gap-y-4">
+            <div class="flex items-center gap-x-3">
+                <div class="w-9 h-9 bg-white rounded-xl flex items-center justify-center" aria-hidden="true">
+                    <span class="text-black font-bold text-xl">C</span>
+                </div>
+                <div>
+                    <span class="font-semibold text-2xl tracking-tight">CampaignOS</span>
+                    <span class="text-xs text-zinc-500 ml-1.5">v2</span>
+                </div>
+            </div>
+
+            <nav aria-label="Main navigation" class="flex flex-wrap items-center gap-x-6 text-sm">
+                <a href="/" class="{% if request.url.path == '/' %}nav-active{% else %}text-zinc-400 hover:text-white{% endif %}">Dashboard</a>
+                <a href="/campaigns" class="{% if request.url.path.startswith('/campaign') %}nav-active{% else %}text-zinc-400 hover:text-white{% endif %}">Campaigns</a>
+                <a href="/channels" class="{% if request.url.path == '/channels' %}nav-active{% else %}text-zinc-400 hover:text-white{% endif %}">Channels</a>
+                <a href="/schedule" class="{% if request.url.path == '/schedule' %}nav-active{% else %}text-zinc-400 hover:text-white{% endif %}">Schedule</a>
+            </nav>
+
+            <div class="flex items-center gap-x-4 text-sm">
+                {% if username %}
+                <div class="hidden sm:block text-zinc-400">Hi, {{ username }}</div>
+                <a href="/logout" 
+                   class="text-xs px-3 py-1.5 hover:bg-zinc-900 rounded-xl border border-zinc-800 transition">
+                    Logout
+                </a>
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main id="main-content" class="py-6">
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="text-center text-xs text-zinc-600 py-8 border-t border-zinc-800 mt-8">
+            CampaignOS v2 — Free &amp; Open Source • Powered by local AI
+        </footer>
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

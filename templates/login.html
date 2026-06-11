@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login • CampaignOS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        a:focus-visible, button:focus-visible, input:focus-visible { 
+            outline: 2px solid #3b82f6; 
+            outline-offset: 2px; 
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-sm px-6">
+        <div class="text-center mb-8">
+            <div class="text-4xl mb-2" aria-hidden="true">🧠</div>
+            <h1 class="text-3xl font-semibold tracking-tight">CampaignOS</h1>
+            <p class="text-zinc-500 mt-1">Self-hosted marketing OS</p>
+        </div>
+
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
+            <form method="post" action="/login" class="space-y-6" aria-label="Login form">
+                <div>
+                    <label for="username" class="block text-sm mb-2 text-zinc-400">Username</label>
+                    <input type="text" id="username" name="username" value="admin" required
+                           class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-zinc-600"
+                           autocomplete="username">
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm mb-2 text-zinc-400">Password</label>
+                    <input type="password" id="password" name="password" value="changeme" required
+                           class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-zinc-600"
+                           autocomplete="current-password">
+                </div>
+
+                {% if request.query_params.get('error') %}
+                <div role="alert" class="text-red-400 text-sm bg-red-950/50 border border-red-900 rounded-xl px-4 py-3">
+                    Invalid username or password. Please try again.
+                </div>
+                {% endif %}
+
+                <button type="submit"
+                        class="w-full bg-white text-black font-medium py-3.5 rounded-xl hover:bg-zinc-200 active:bg-zinc-300 transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-900 focus:ring-blue-500">
+                    Sign in
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-xs text-zinc-600 mt-8">
+            Default credentials: <span class="font-mono">admin / changeme</span>
+        </p>
+    </div>
+</body>
+</html>
