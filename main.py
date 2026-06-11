@@ -9,6 +9,7 @@ before a restart, then run the bot and dashboard concurrently.
 
 import asyncio
 import logging
+import os
 
 import uvicorn
 
@@ -26,7 +27,8 @@ async def run_bot():
 
 
 async def run_dashboard():
-    config = uvicorn.Config(dashboard_app, host="0.0.0.0", port=8000, log_level="info")
+    port = int(os.getenv("DASHBOARD_PORT", "8000"))
+    config = uvicorn.Config(dashboard_app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
 
