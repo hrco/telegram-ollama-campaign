@@ -40,7 +40,15 @@ Fix the blockers in **Priority 0** and we have a demoable, promotable product.
 
 ## Priority 0 — make it run end-to-end (BLOCKERS for promo)
 
-These are real bugs / missing wiring found by reading the code on 2026-06-11. Do these first.
+> **STATUS 2026-06-11 (commit 874937b):** P0.1–P0.5 are **done** and covered by tests
+> (`tests/test_p0_integration.py`, 19 passing). The bot has `/social` + `/channels`; the
+> dashboard has the campaign-detail GET route, a schedule-post form, and
+> `/schedule/new` + `/schedule/{id}/cancel` wired to the scheduler; `main.py` has a single
+> clean startup with scheduler start + pending-post reconciliation; the XSS sink in
+> `campaign_detail.html` is closed. **P0.6 (manual smoke with live Ollama + Telegram) is the
+> only P0 item left — it needs a human/box with those running.** Next up: Priority 1 (UI).
+
+These were real bugs / missing wiring found by reading the code on 2026-06-11.
 
 ### P0.1 — `dashboard.py` crashes on campaign routes (missing imports)
 `dashboard.py` calls `create_campaign`, `save_message`, and `get_current_campaign` in the
