@@ -126,7 +126,7 @@ async def process_confirmation(message: Message, state: FSMContext):
 
     try:
         prompt = get_phase_prompt("research", topic=topic, platform="multi")
-        content = llm_generate(prompt)
+        content = await llm_generate(prompt)
 
         await save_message(campaign_id, "assistant", content, "research")
         await message.answer(content[:3800])
@@ -178,7 +178,7 @@ async def cmd_social(message: Message):
 
     try:
         prompt = get_phase_prompt("social_copy", topic=campaign["topic"], tone="engaging and direct")
-        content = llm_generate(prompt)
+        content = await llm_generate(prompt)
         await save_message(campaign["id"], "assistant", content, "social_copy")
 
         if len(content) > 3800:
