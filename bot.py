@@ -117,7 +117,7 @@ async def cmd_new_campaign(message: Message, state: FSMContext):
     await message.answer("What is the <b>topic</b> of your campaign?\n\nExample: <i>Launch of sustainable coffee brand</i>")
 
 
-@router.message(CampaignCreation.waiting_for_topic, ~F.text.startswith("/"))
+@router.message(CampaignCreation.waiting_for_topic, F.text, ~F.text.startswith("/"))
 async def process_topic(message: Message, state: FSMContext):
     topic = message.text.strip()
     await state.update_data(topic=topic)
@@ -130,7 +130,7 @@ async def process_topic(message: Message, state: FSMContext):
     )
 
 
-@router.message(CampaignCreation.waiting_for_confirmation, ~F.text.startswith("/"))
+@router.message(CampaignCreation.waiting_for_confirmation, F.text, ~F.text.startswith("/"))
 async def process_confirmation(message: Message, state: FSMContext):
     if message.text.lower() not in ["yes", "y"]:
         await state.clear()
@@ -148,7 +148,7 @@ async def process_confirmation(message: Message, state: FSMContext):
 
     try:
         prompt = get_phase_prompt("research", topic=topic, platform="multi")
-        content = await llm_generate_async(prompt)
+        content = await llm_generate(prompt)
 
         await save_message(campaign_id, "assistant", content, "research")
         await message.answer(content[:3800])
@@ -211,7 +211,7 @@ async def cmd_social(message: Message):
         await message.answer("✅ Social copy ready. Open the dashboard to schedule it.")
     except Exception as e:
         logger.error(f"Error generating social copy: {e}")
-        await message.answer("❌ Failed to generate social copy. Is Ollama running?")
+        await message.answer("❌ Failed to generate social copy. Check your configured LLM provider and connectivity.")
 
 
 @router.message(Command("channels"))
