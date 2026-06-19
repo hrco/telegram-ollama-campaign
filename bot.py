@@ -12,7 +12,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramAPIError, TelegramRetryAfter
 from dotenv import load_dotenv
-import ollama
+from llm import generate as llm_generate
 
 from states import CampaignCreation
 from campaign_protocol import get_phase_prompt
@@ -126,8 +126,7 @@ async def process_confirmation(message: Message, state: FSMContext):
 
     try:
         prompt = get_phase_prompt("research", topic=topic, platform="multi")
-        resp = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        content = resp['message']['content']
+        content = llm_generate(prompt)
 
         await save_message(campaign_id, "assistant", content, "research")
         await message.answer(content[:3800])
@@ -179,8 +178,7 @@ async def cmd_social(message: Message):
 
     try:
         prompt = get_phase_prompt("social_copy", topic=campaign["topic"], tone="engaging and direct")
-        resp = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        content = resp["message"]["content"]
+        content = llm_generate(prompt)
         await save_message(campaign["id"], "assistant", content, "social_copy")
 
         if len(content) > 3800:

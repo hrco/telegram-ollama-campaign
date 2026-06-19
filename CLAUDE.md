@@ -46,15 +46,16 @@ one SQLite file (`campaigns.db`). Module map:
   SpectreHawk soul line (see `git log`), not corporate boilerplate.
 - **Secrets:** `.env` holds a **real bot token** and is gitignored — never stage it, never echo
   its values into context or commits. `.env.example` is the only committed env file.
-- **Local-first:** no paid APIs in the runtime. Inference is local Ollama by design — that's the
-  product's selling point. Don't introduce a cloud LLM dependency.
+- **Local-first:** Ollama is the default and primary LLM provider. `llm.py` supports xAI/Grok as
+  an optional escape hatch (`LLM_PROVIDER=xai` + `XAI_API_KEY`). Never make a paid provider the
+  default or a hard dependency.
 - **Run from venv:** `source .venv/bin/activate` before pytest / uvicorn / `python main.py`.
 
 ## Run it
 ```bash
 make setup            # venv + deps
 make model            # ollama pull llama3.1:8b
-python main.py        # bot + dashboard at http://localhost:8000  (see HANDOFF P0.5 — startup needs fixing)
+make all              # bot + dashboard + scheduler at http://localhost:8000
 ```
 Dashboard login uses `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env`.
 

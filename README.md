@@ -18,12 +18,7 @@ A clean, powerful tool to run high-quality marketing and content campaigns witho
 ```bash
 make setup
 make model          # Downloads llama3.1:8b
-make dashboard      # Web interface at http://localhost:8000
-```
-
-Or run the Telegram bot:
-```bash
-make run
+make all            # Bot + dashboard + scheduler at http://localhost:8000
 ```
 
 ## Features
