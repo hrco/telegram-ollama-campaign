@@ -27,7 +27,7 @@ async def _ollama_generate(prompt: str, model: Optional[str] = None) -> str:
     return response["message"]["content"]
 
 
-def _xai_generate(prompt: str) -> str:
+def _xai_generate(prompt: str, model: Optional[str] = None) -> str:
     api_key = os.getenv("XAI_API_KEY")
     if not api_key:
         raise ValueError("XAI_API_KEY is not set")
@@ -43,7 +43,7 @@ def _xai_generate(prompt: str) -> str:
     )
 
     response = client.chat.completions.create(
-        model=XAI_MODEL,
+        model=model or XAI_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
     )
@@ -52,18 +52,18 @@ def _xai_generate(prompt: str) -> str:
 
 async def generate(prompt: str, model: Optional[str] = None) -> str:
     """
-    Unified generation function (sync).
+    Unified generation function (async).
     Uses the provider defined in LLM_PROVIDER env var.
     """
     if LLM_PROVIDER == "xai":
-        return _xai_generate(prompt)
+        return _xai_generate(prompt, model)
     else:
         return await _ollama_generate(prompt, model)
 
 
 async def generate_async(prompt: str, model: Optional[str] = None) -> str:
-    """Async wrapper that runs the sync generate in a thread to avoid blocking."""
-    return await asyncio.to_thread(generate, prompt, model)
+    """Async generation. Delegates to generate() which is already async."""
+    return await generate(prompt, model)
 
 
 def get_current_provider() -> str:

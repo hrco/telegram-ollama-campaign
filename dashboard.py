@@ -264,11 +264,11 @@ async def update_llm(
     xai_model: str = Form("grok-3-mini-beta"),
     username: str = Depends(require_auth),
 ):
+    llm_set_provider(llm_provider)
+    llm_set_models(ollama_model=ollama_model, xai_model=xai_model)
     await set_setting("llm_provider", llm_provider)
     await set_setting("ollama_model", ollama_model)
     await set_setting("xai_model", xai_model)
-    llm_set_provider(llm_provider)
-    llm_set_models(ollama_model=ollama_model, xai_model=xai_model)
     return RedirectResponse("/settings?ok=llm-updated", status_code=302)
 
 

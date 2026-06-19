@@ -39,6 +39,11 @@ if not TELEGRAM_TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN is missing!")
     exit(1)
 
+bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
+dp = Dispatcher()
+router = Router()
+dp.include_router(router)
+
 _notified_users = set()
 
 @router.message.outer_middleware
@@ -51,11 +56,6 @@ async def admin_only_middleware(handler, event: Message, data):
     if user_id not in _notified_users:
         _notified_users.add(user_id)
         await event.answer("🔒 This bot is private. Only the admin can use it.")
-
-bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
-dp = Dispatcher()
-router = Router()
-dp.include_router(router)
 
 
 # ==================== ERROR HANDLER ====================
@@ -162,7 +162,7 @@ async def process_confirmation(message: Message, state: FSMContext):
 
     try:
         prompt = get_phase_prompt("research", topic=topic, platform="multi")
-        content = await llm_generate(prompt)
+        content = await llm_generate_async(prompt)
 
         await save_message(campaign_id, "assistant", content, "research")
         await message.answer(content[:3800])
