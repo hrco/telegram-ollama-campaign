@@ -37,8 +37,14 @@ def verify_token(token: str) -> Optional[str]:
         return None
 
 
-def check_credentials(username: str, password: str) -> bool:
-    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+async def check_credentials(username: str, password: str) -> bool:
+    if username != ADMIN_USERNAME:
+        return False
+    from database import get_setting
+    hashed = await get_setting("password_hash")
+    if hashed and verify_password(password, hashed):
+        return True
+    return password == ADMIN_PASSWORD
 
 
 class NotAuthenticatedException(Exception):
