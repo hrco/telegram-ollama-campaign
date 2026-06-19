@@ -52,8 +52,10 @@ def _xai_generate(prompt: str) -> str:
 
 async def generate(prompt: str, model: Optional[str] = None) -> str:
     """
-    Unified generation function (sync).
+    Unified generation function (async).
     Uses the provider defined in LLM_PROVIDER env var.
+
+    Note: The model parameter is only used for the ollama provider and ignored for xai.
     """
     if LLM_PROVIDER == "xai":
         return _xai_generate(prompt)

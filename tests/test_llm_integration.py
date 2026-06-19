@@ -40,7 +40,7 @@ def client():
     app.dependency_overrides.clear()
 
 
-@patch("dashboard.llm_generate_async", new_callable=AsyncMock)
+@patch("dashboard.llm_generate", new_callable=AsyncMock)
 def test_dashboard_create_campaign_calls_llm(mock_generate, client):
     mock_generate.return_value = MOCK_LLM_RESPONSE
     async def seed():
@@ -64,7 +64,7 @@ def test_dashboard_create_campaign_calls_llm(mock_generate, client):
     assert MOCK_LLM_RESPONSE in r2.text
 
 
-@patch("dashboard.llm_generate_async", new_callable=AsyncMock)
+@patch("dashboard.llm_generate", new_callable=AsyncMock)
 def test_dashboard_continue_campaign_calls_llm(mock_generate, client):
     mock_generate.return_value = MOCK_LLM_RESPONSE
     async def seed():
