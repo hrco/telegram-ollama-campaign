@@ -35,12 +35,13 @@ def _ollama_generate(prompt: str, model: Optional[str] = None) -> str:
     return response["message"]["content"]
 
 
-def _xai_generate(prompt: str) -> str:
+def _xai_generate(prompt: str, model: Optional[str] = None) -> str:
     """
     Generate text using xAI's Grok model.
     
     Parameters:
     	prompt (str): The input prompt for the model.
+    	model (str, optional): Model name to use. If not provided, uses the XAI_MODEL environment variable.
     
     Returns:
     	str: The generated text.
@@ -75,13 +76,10 @@ async def generate(prompt: str, model: Optional[str] = None) -> str:
     """
     Unified generation function (async).
     Uses the provider defined in LLM_PROVIDER env var.
-
-    Note: The model parameter is only used for the ollama provider and ignored for xai.
     """
     if LLM_PROVIDER == "xai":
-        return _xai_generate(prompt, model)
-    else:
-        return await _ollama_generate(prompt, model)
+        return await asyncio.to_thread(_xai_generate, prompt, model)
+    return await asyncio.to_thread(_ollama_generate, prompt, model)
 
 
 async def generate_async(prompt: str, model: Optional[str] = None) -> str:
@@ -91,7 +89,7 @@ async def generate_async(prompt: str, model: Optional[str] = None) -> str:
     Returns:
     	str: The generated text.
     """
-    return await asyncio.to_thread(generate, prompt, model)
+    return await generate(prompt, model)
 
 
 def get_current_provider() -> str:
