@@ -52,7 +52,7 @@ def _xai_generate(prompt: str) -> str:
 
 async def generate(prompt: str, model: Optional[str] = None) -> str:
     """
-    Unified generation function.
+    Unified generation function (sync).
     Uses the provider defined in LLM_PROVIDER env var.
     """
     if LLM_PROVIDER == "xai":
@@ -61,9 +61,16 @@ async def generate(prompt: str, model: Optional[str] = None) -> str:
         return await _ollama_generate(prompt, model)
 
 
+async def generate_async(prompt: str, model: Optional[str] = None) -> str:
+    """Async wrapper that runs the sync generate in a thread to avoid blocking."""
+    return await asyncio.to_thread(generate, prompt, model)
+
+
 def get_current_provider() -> str:
     return LLM_PROVIDER
 
+
+SUPPORTED_PROVIDERS = {"ollama", "xai"}
 
 def set_provider(provider: str):
     global LLM_PROVIDER

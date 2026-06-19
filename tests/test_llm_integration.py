@@ -18,6 +18,9 @@ os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "testpass")
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "123456:TEST-token-not-real")
 
+import atexit
+atexit.register(lambda: os.unlink(_temp_db.name) if os.path.exists(_temp_db.name) else None)
+
 from fastapi.testclient import TestClient
 from database import init_db, get_or_create_user, create_campaign, save_message
 
@@ -37,8 +40,9 @@ def client():
     app.dependency_overrides.clear()
 
 
-@patch("dashboard.llm_generate", return_value=MOCK_LLM_RESPONSE)
+@patch("dashboard.llm_generate_async", new_callable=AsyncMock)
 def test_dashboard_create_campaign_calls_llm(mock_generate, client):
+    mock_generate.return_value = MOCK_LLM_RESPONSE
     async def seed():
         await init_db()
         await get_or_create_user(1, "testuser")
@@ -60,8 +64,9 @@ def test_dashboard_create_campaign_calls_llm(mock_generate, client):
     assert MOCK_LLM_RESPONSE in r2.text
 
 
-@patch("dashboard.llm_generate", return_value=MOCK_LLM_RESPONSE)
+@patch("dashboard.llm_generate_async", new_callable=AsyncMock)
 def test_dashboard_continue_campaign_calls_llm(mock_generate, client):
+    mock_generate.return_value = MOCK_LLM_RESPONSE
     async def seed():
         await init_db()
         await get_or_create_user(1, "testuser")
@@ -82,10 +87,11 @@ def test_dashboard_continue_campaign_calls_llm(mock_generate, client):
 # ---------- Bot generate path ----------
 
 @pytest.mark.asyncio
-@patch("bot.llm_generate", return_value=MOCK_LLM_RESPONSE)
+@patch("bot.llm_generate_async", new_callable=AsyncMock)
 @patch("bot.get_current_campaign")
 @patch("bot.save_message")
 async def test_bot_social_path_uses_llm(mock_save_message, mock_get_campaign, mock_generate):
+    mock_generate.return_value = MOCK_LLM_RESPONSE
     await init_db()
     mock_get_campaign.return_value = {"id": 42, "topic": "Bot test campaign"}
 
