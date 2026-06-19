@@ -4,6 +4,7 @@ Professional marketing campaign assistant with proper error handling
 """
 
 import os
+import sys
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, Router, F
@@ -37,13 +38,13 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
 if not TELEGRAM_TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN is missing!")
-    exit(1)
+    sys.exit(1)
 
 if ADMIN_TELEGRAM_ID:
     ADMIN_TELEGRAM_ID = ADMIN_TELEGRAM_ID.strip()
     if not ADMIN_TELEGRAM_ID.isdigit():
         logger.error(f"ADMIN_TELEGRAM_ID must be a numeric user ID, got: {ADMIN_TELEGRAM_ID!r}")
-        exit(1)
+        sys.exit(1)
 
 bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()

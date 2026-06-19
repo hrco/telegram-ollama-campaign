@@ -91,11 +91,13 @@
 **Current decision: Stay on SQLite with hardening.**
 
 ### Immediate steps (no rewrite)
+
 1. **Enable WAL mode** — `PRAGMA journal_mode=WAL;` on every connection. Allows concurrent reads + one writer without locking the entire DB.
 2. **Set busy_timeout** — `PRAGMA busy_timeout=5000;` so writers wait up to 5s instead of failing immediately on contention.
 3. **Single-writer queue** — Wrap all write operations in a single `asyncio.Lock` inside `database.py` so only one coroutine writes at a time. This is 5 lines of code and prevents the most common SQLite concurrency crash.
 
 ### Objective cutover triggers (migrate to PostgreSQL when ANY fires)
+
 | Trigger | Threshold |
 |---------|-----------|
 | `database.lock` timeouts | >1 per week in production |
