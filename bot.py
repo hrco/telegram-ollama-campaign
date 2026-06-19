@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 load_dotenv(override=False)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
 if not TELEGRAM_TOKEN:
@@ -42,6 +43,19 @@ bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 router = Router()
 dp.include_router(router)
+
+_notified_users = set()
+
+@router.message.outer_middleware
+async def admin_only_middleware(handler, event: Message, data):
+    if not ADMIN_TELEGRAM_ID:
+        return await handler(event, data)
+    user_id = str(event.from_user.id)
+    if user_id == ADMIN_TELEGRAM_ID:
+        return await handler(event, data)
+    if user_id not in _notified_users:
+        _notified_users.add(user_id)
+        await event.answer("🔒 This bot is private. Only the admin can use it.")
 
 
 # ==================== ERROR HANDLER ====================
@@ -126,7 +140,7 @@ async def cmd_new_campaign(message: Message, state: FSMContext):
     await message.answer("What is the <b>topic</b> of your campaign?\n\nExample: <i>Launch of sustainable coffee brand</i>")
 
 
-@router.message(CampaignCreation.waiting_for_topic, ~F.text.startswith("/"))
+@router.message(CampaignCreation.waiting_for_topic, F.text, ~F.text.startswith("/"))
 async def process_topic(message: Message, state: FSMContext):
     """
     Store the campaign topic and request confirmation to start research.
@@ -144,7 +158,7 @@ async def process_topic(message: Message, state: FSMContext):
     )
 
 
-@router.message(CampaignCreation.waiting_for_confirmation, ~F.text.startswith("/"))
+@router.message(CampaignCreation.waiting_for_confirmation, F.text, ~F.text.startswith("/"))
 async def process_confirmation(message: Message, state: FSMContext):
     """
     Processes user confirmation to create a marketing campaign and run the initial research phase.
@@ -237,7 +251,7 @@ async def cmd_social(message: Message):
         await message.answer("✅ Social copy ready. Open the dashboard to schedule it.")
     except Exception as e:
         logger.error(f"Error generating social copy: {e}")
-        await message.answer("❌ Failed to generate social copy. Is Ollama running?")
+        await message.answer("❌ Failed to generate social copy. Check your configured LLM provider and connectivity.")
 
 
 @router.message(Command("channels"))

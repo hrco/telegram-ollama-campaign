@@ -5,16 +5,21 @@ Covers the blind spot that let the return-type contract change silently.
 import asyncio
 import os
 import tempfile
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 
 import pytest
 
 _temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-os.environ["DB_PATH"] = _temp_db.name
+_temp_db_path = _temp_db.name
+_temp_db.close()
+os.environ["DB_PATH"] = _temp_db_path
 os.environ.setdefault("SECRET_KEY", "testsecret")
 os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "testpass")
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "123456:TEST-token-not-real")
+
+import atexit
+atexit.register(lambda: os.unlink(_temp_db.name) if os.path.exists(_temp_db.name) else None)
 
 from fastapi.testclient import TestClient
 from database import init_db, get_or_create_user, create_campaign, save_message
@@ -41,7 +46,7 @@ def client():
     app.dependency_overrides.clear()
 
 
-@patch("dashboard.llm_generate_async", new_callable=AsyncMock)
+@patch("dashboard.llm_generate", new_callable=AsyncMock)
 def test_dashboard_create_campaign_calls_llm(mock_generate, client):
     mock_generate.return_value = MOCK_LLM_RESPONSE
     async def seed():
@@ -68,7 +73,7 @@ def test_dashboard_create_campaign_calls_llm(mock_generate, client):
     assert MOCK_LLM_RESPONSE in r2.text
 
 
-@patch("dashboard.llm_generate_async", new_callable=AsyncMock)
+@patch("dashboard.llm_generate", new_callable=AsyncMock)
 def test_dashboard_continue_campaign_calls_llm(mock_generate, client):
     mock_generate.return_value = MOCK_LLM_RESPONSE
     async def seed():
@@ -80,8 +85,7 @@ def test_dashboard_continue_campaign_calls_llm(mock_generate, client):
         """
         await init_db()
         await get_or_create_user(1, "testuser")
-        cid = await create_campaign(1, "Continue test")
-        return cid
+        return await create_campaign(1, "Continue test")
 
     cid = asyncio.run(seed())
 
@@ -106,7 +110,6 @@ async def test_bot_social_path_uses_llm(mock_save_message, mock_get_campaign, mo
     await init_db()
     mock_get_campaign.return_value = {"id": 42, "topic": "Bot test campaign"}
 
-    from unittest.mock import MagicMock
     fake_message = MagicMock()
     fake_message.from_user.id = 901
     fake_message.answer = AsyncMock()
@@ -117,3 +120,9 @@ async def test_bot_social_path_uses_llm(mock_save_message, mock_get_campaign, mo
     mock_generate.assert_called_once()
     mock_save_message.assert_called_once_with(42, "assistant", MOCK_LLM_RESPONSE, "social_copy")
     fake_message.answer.assert_any_await("✅ Social copy ready. Open the dashboard to schedule it.")
+
+
+def teardown_module():
+    """Cleanup temporary test database file."""
+    if os.path.exists(_temp_db_path):
+        os.unlink(_temp_db_path)
