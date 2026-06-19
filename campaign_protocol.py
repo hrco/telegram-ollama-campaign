@@ -61,6 +61,11 @@ Each message must have:
 
 Vary the angle for each. Keep each under 280 words. Format with --- between messages.
 
+**Important rules:**
+- Do NOT invent statistics, user counts, testimonials, or social proof.
+- Only use facts that are verifiably true about the product.
+- If you don't have real data, don't mention numbers or "thousands of users".
+
 Topic: {topic}
 Tone: {tone}
 """,
