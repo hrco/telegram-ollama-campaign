@@ -25,6 +25,7 @@
 ## STATUS 2026-06-19 — what's next
 
 ### Broken tests (blocker before next PR)
+
 `test_dashboard_create_campaign_calls_llm` and `test_dashboard_continue_campaign_calls_llm`
 still patch the old import path `dashboard.llm_generate_async`. Fix the mock targets or
 rebind the import name in `dashboard.py`.
@@ -41,12 +42,15 @@ rebind the import name in `dashboard.py`.
 **One differentiator:** Local private campaign memory — semantic search over every sent message + performance data. "Never repeat these 3 Q3 angles that underperformed" without uploading data anywhere.
 
 ### Proposed: `/brand` command via xbridge
+
 Generate a full brand kit from Telegram: 9 logo concepts (`grok-image-generate`), color palette, taglines, visual direction brief. See the summary doc for full FSM flow and prompt templates.
 
 ### P0.6 smoke still pending
+
 Needs a real Telegram channel the bot is admin of. The bot is running at @campaignos_bot — confirm it's admin of a channel, then test schedule → broadcast.
 
 ### Token rotation (human-only, still pending)
+
 Bot token was leaked and scrubbed from git history. Rotate via BotFather, update `.env`, restart.
 
 ---
@@ -79,6 +83,7 @@ Bot token was leaked and scrubbed from git history. Rotate via BotFather, update
 These were real bugs / missing wiring found by reading the code on 2026-06-11.
 
 ### P0.1 — `dashboard.py` crashes on campaign routes (missing imports)
+
 `dashboard.py` calls `create_campaign`, `save_message`, and `get_current_campaign` in the
 `/campaign/new` and `/campaign/{id}/continue` handlers, but **never imports them** — these
 routes 500 with `NameError` the moment they're hit.
@@ -86,6 +91,7 @@ routes 500 with `NameError` the moment they're hit.
 - Then actually exercise the routes (see P0.6) — don't trust the import fix alone.
 
 ### P0.2 — Bot advertises `/social` and `/channels` but has no handlers
+
 `bot.py`'s `/start` and `/help` text list `/social` and `/channels`, but **no handler exists**
 for either (only start/help/new/campaigns/resume are wired). The `social_copy` phase *is*
 defined in `campaign_protocol.py`, so the prompt is ready — just the command is missing.
@@ -93,12 +99,14 @@ defined in `campaign_protocol.py`, so the prompt is ready — just the command i
   Ollama and saves the message; `/channels` lists `list_channels()`).
 
 ### P0.3 — No GET route for campaign detail
+
 `templates/campaign_detail.html` exists but **nothing serves it** — there is no
 `@app.get("/campaign/{campaign_id}")` route, so every "open campaign" link 404s.
 - Add the GET route: load the campaign + its messages (`get_campaign_messages`) and render
   `campaign_detail.html`. This is the screen where a user reads research/content/social output.
 
 ### P0.4 — Cannot schedule or broadcast from the UI (core value prop is missing)
+
 There is a `GET /schedule` page but **no `POST /schedule/new` and no `POST /schedule/{id}/cancel`**,
 and the dashboard never touches the scheduler. So scheduled posts can't be created, and the
 broadcaster is never invoked from the product — only from tests.
@@ -108,6 +116,7 @@ broadcaster is never invoked from the product — only from tests.
   that POSTs to `/schedule/new`. Without this there is no path from generated copy → channel.
 
 ### P0.5 — `main.py` startup is fragile / double-inits, scheduler not bound to the bot
+
 `main.py` runs the bot polling loop and the dashboard concurrently, but:
 - `init_db()` runs in both `main()` and the dashboard's own `@app.on_event("startup")`.
 - `dashboard.py` still uses the deprecated `@app.on_event("startup")` instead of the lifespan
@@ -123,6 +132,7 @@ broadcaster is never invoked from the product — only from tests.
   and confirms the scheduler is `running`.
 
 ### P0.6 — Manual end-to-end smoke before declaring P0 done
+
 With Ollama running locally and a real channel the bot is admin of:
 1. `python main.py` → open `http://localhost:8000` → redirected to `/login` → sign in.
 2. Create a campaign → research renders → open its detail page (P0.3).
@@ -196,6 +206,7 @@ Can run alongside P0/P1 since it doesn't touch the runtime:
   `superpowers:dispatching-parallel-agents`.
 
 ## Definition of done for "promotable"
+
 Fresh clone → `make setup` → `.env` filled → `python main.py` → a non-technical person can log
 in, generate a campaign + social copy, connect a channel, schedule a post, and watch it
 broadcast — on a UI that looks intentional in a screenshot. Full suite green. No secrets in git.

@@ -39,6 +39,12 @@ if not TELEGRAM_TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN is missing!")
     exit(1)
 
+if ADMIN_TELEGRAM_ID:
+    ADMIN_TELEGRAM_ID = ADMIN_TELEGRAM_ID.strip()
+    if not ADMIN_TELEGRAM_ID.isdigit():
+        logger.error(f"ADMIN_TELEGRAM_ID must be a numeric user ID, got: {ADMIN_TELEGRAM_ID!r}")
+        exit(1)
+
 bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 router = Router()
@@ -49,6 +55,8 @@ _notified_users = set()
 @router.message.outer_middleware
 async def admin_only_middleware(handler, event: Message, data):
     if not ADMIN_TELEGRAM_ID:
+        return await handler(event, data)
+    if not event.from_user:
         return await handler(event, data)
     user_id = str(event.from_user.id)
     if user_id == ADMIN_TELEGRAM_ID:
