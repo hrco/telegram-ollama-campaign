@@ -148,7 +148,7 @@ async def process_confirmation(message: Message, state: FSMContext):
 
     try:
         prompt = get_phase_prompt("research", topic=topic, platform="multi")
-        content = await llm_generate_async(prompt)
+        content = await llm_generate(prompt)
 
         await save_message(campaign_id, "assistant", content, "research")
         await message.answer(content[:3800])
