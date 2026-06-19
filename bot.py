@@ -32,11 +32,25 @@ logger = logging.getLogger(__name__)
 load_dotenv(override=False)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
 if not TELEGRAM_TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN is missing!")
     exit(1)
+
+_notified_users = set()
+
+@router.message.outer_middleware
+async def admin_only_middleware(handler, event: Message, data):
+    if not ADMIN_TELEGRAM_ID:
+        return await handler(event, data)
+    user_id = str(event.from_user.id)
+    if user_id == ADMIN_TELEGRAM_ID:
+        return await handler(event, data)
+    if user_id not in _notified_users:
+        _notified_users.add(user_id)
+        await event.answer("🔒 This bot is private. Only the admin can use it.")
 
 bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
