@@ -228,9 +228,10 @@ async def cancel_schedule_post(post_id: int, username: str = Depends(require_aut
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request, username: str = Depends(require_auth)):
-    settings = await get_all_settings()
+    raw = await get_all_settings()
+    safe = {k: v for k, v in raw.items() if k not in ("password_hash",)}
     return templates.TemplateResponse("settings.html", {
-        "request": request, "settings": settings, "title": "Settings", "username": username,
+        "request": request, "settings": safe, "title": "Settings", "username": username,
         "current_provider": get_current_provider(),
     })
 

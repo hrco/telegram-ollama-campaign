@@ -69,6 +69,11 @@ def get_current_provider() -> str:
     return LLM_PROVIDER
 
 
+SUPPORTED_PROVIDERS = {"ollama", "xai"}
+
 def set_provider(provider: str):
     global LLM_PROVIDER
-    LLM_PROVIDER = provider.lower()
+    normalized = provider.lower()
+    if normalized not in SUPPORTED_PROVIDERS:
+        raise ValueError(f"Unsupported LLM provider '{provider}'. Supported: {', '.join(sorted(SUPPORTED_PROVIDERS))}")
+    LLM_PROVIDER = normalized

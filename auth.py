@@ -42,8 +42,8 @@ async def check_credentials(username: str, password: str) -> bool:
         return False
     from database import get_setting
     hashed = await get_setting("password_hash")
-    if hashed and verify_password(password, hashed):
-        return True
+    if hashed:
+        return verify_password(password, hashed)
     return password == ADMIN_PASSWORD
 
 

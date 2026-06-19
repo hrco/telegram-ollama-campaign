@@ -5,16 +5,20 @@ Covers the blind spot that let the return-type contract change silently.
 import asyncio
 import os
 import tempfile
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 
 import pytest
 
 _temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 os.environ["DB_PATH"] = _temp_db.name
+_temp_db.close()
 os.environ.setdefault("SECRET_KEY", "testsecret")
 os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "testpass")
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "123456:TEST-token-not-real")
+
+import atexit
+atexit.register(lambda: os.unlink(_temp_db.name) if os.path.exists(_temp_db.name) else None)
 
 from fastapi.testclient import TestClient
 from database import init_db, get_or_create_user, create_campaign, save_message
@@ -91,7 +95,6 @@ async def test_bot_social_path_uses_llm(mock_save_message, mock_get_campaign, mo
     await init_db()
     mock_get_campaign.return_value = {"id": 42, "topic": "Bot test campaign"}
 
-    from unittest.mock import MagicMock
     fake_message = MagicMock()
     fake_message.from_user.id = 901
     fake_message.answer = AsyncMock()
