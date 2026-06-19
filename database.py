@@ -4,7 +4,7 @@ SQLite Persistence Layer for CampaignOS v2
 
 import aiosqlite
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
 DB_PATH = os.getenv("DB_PATH", "campaigns.db")
@@ -73,6 +73,12 @@ async def init_db():
                 FOREIGN KEY(scheduled_post_id) REFERENCES scheduled_posts(id)
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
         await db.commit()
 
 
@@ -94,7 +100,7 @@ async def get_or_create_user(user_id: int, username: Optional[str] = None) -> Di
 
 async def create_campaign(user_id: int, topic: str) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         cursor = await db.execute(
             "INSERT INTO campaigns (user_id, topic, created_at) VALUES (?, ?, ?)",
             (user_id, topic, now)
@@ -123,7 +129,7 @@ async def get_current_campaign(user_id: int) -> Optional[Dict]:
 
 async def save_message(campaign_id: int, role: str, content: str, phase: Optional[str] = None):
     async with aiosqlite.connect(DB_PATH) as db:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         await db.execute(
             "INSERT INTO messages (campaign_id, role, content, phase, timestamp) VALUES (?, ?, ?, ?, ?)",
             (campaign_id, role, content, phase, now)
@@ -155,7 +161,7 @@ async def list_user_campaigns(user_id: int) -> List[Dict]:
 
 async def add_channel(chat_id: str, name: str) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         cursor = await db.execute(
             "INSERT OR IGNORE INTO channels (chat_id, name, added_at) VALUES (?, ?, ?)",
             (chat_id, name, now)
@@ -272,7 +278,7 @@ async def update_post_status(post_id: int, status: str, sent_at: Optional[str] =
 
 async def record_send_analytics(post_id: int, telegram_message_id: Optional[int], status: str):
     async with aiosqlite.connect(DB_PATH) as db:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         await db.execute(
             """INSERT INTO send_analytics (scheduled_post_id, telegram_message_id, sent_at, status)
                VALUES (?, ?, ?, ?)""",
@@ -291,6 +297,33 @@ async def list_pending_scheduled_posts() -> List[Dict]:
         )
         rows = await cursor.fetchall()
         return [{"id": r[0], "scheduled_at": r[1], "recurring_cron": r[2]} for r in rows]
+
+
+# ==================== USER SETTINGS ====================
+
+async def get_setting(key: str, default: Optional[str] = None) -> Optional[str]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT value FROM user_settings WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else default
+
+
+async def set_setting(key: str, value: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO user_settings (key, value) VALUES (?, ?)",
+            (key, value)
+        )
+        await db.commit()
+
+
+async def get_all_settings() -> Dict[str, str]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT key, value FROM user_settings")
+        rows = await cursor.fetchall()
+        return {r[0]: r[1] for r in rows}
 
 
 async def get_dashboard_stats() -> Dict:

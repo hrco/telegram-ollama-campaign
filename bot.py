@@ -9,10 +9,11 @@ import logging
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
+from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramAPIError, TelegramRetryAfter
 from dotenv import load_dotenv
-import ollama
+from llm import generate_async as llm_generate_async
 
 from states import CampaignCreation
 from campaign_protocol import get_phase_prompt
@@ -28,7 +29,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv(override=False)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
@@ -37,7 +38,7 @@ if not TELEGRAM_TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN is missing!")
     exit(1)
 
-bot = Bot(token=TELEGRAM_TOKEN)
+bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 router = Router()
 dp.include_router(router)
@@ -68,24 +69,45 @@ async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     await get_or_create_user(message.from_user.id, message.from_user.username)
     await message.answer(
-        "🧠 <b>CampaignOS Bot</b> — Professional Marketing Assistant\n\n"
-        "Available commands:\n"
-        "/new — Start a new campaign\n"
-        "/campaigns — View your campaigns\n"
-        "/social — Generate social copy for current campaign\n"
-        "/channels — List connected Telegram channels\n"
-        "/resume — Resume latest campaign\n"
-        "/help — Show help"
+        "🧠 <b>CampaignOS</b> — Marketing OS powered by local AI\n\n"
+        "Plan campaigns, generate copy, schedule, and broadcast to your Telegram channels. "
+        "All self-hosted, all free.\n\n"
+        "<b>Commands</b>\n"
+        "• /new — Start a new campaign\n"
+        "• /campaigns — View your campaigns\n"
+        "• /social — Generate social copy for current campaign\n"
+        "• /channels — List connected channels\n"
+        "• /resume — Resume latest campaign\n"
+        "• /help — Full guide\n\n"
+        "<b>Dashboard</b> — open http://localhost:8001 in your browser"
     )
 
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
     await message.answer(
-        "📋 <b>CampaignOS Help</b>\n\n"
-        "• /new — Create a new marketing campaign\n"
-        "• /campaigns — List all your campaigns\n"
-        "• /resume — Continue your latest campaign"
+        "📋 <b>CampaignOS — How it works</b>\n\n"
+        "This bot + dashboard helps you plan, write, schedule, and broadcast "
+        "marketing campaigns using a local AI.\n\n"
+        "<b>Getting started</b>\n"
+        "1. /new — Start a campaign (name a topic)\n"
+        "2. Reply <b>yes</b> — Bot researches your topic with AI\n"
+        "3. Open the dashboard at http://localhost:8001 — view, continue, schedule\n\n"
+        "<b>Commands</b>\n"
+        "• /new — Create a new campaign\n"
+        "• /campaigns — List your campaigns\n"
+        "• /resume — Show latest campaign progress\n"
+        "• /social — Generate social copy for current campaign\n"
+        "• /channels — List connected Telegram channels\n"
+        "• /help — This message\n\n"
+        "<b>Dashboard</b>\n"
+        "Open http://localhost:8001 in your browser. From there you can:\n"
+        "• Start/continue campaigns\n"
+        "• Register channels the bot is admin of\n"
+        "• Schedule posts (one-off or recurring cron)\n"
+        "• View broadcast history\n"
+        "• Change password and LLM provider in Settings\n\n"
+        "Need more? Open an issue at github.com/hrco/telegram-ollama-campaign"
     )
 
 
@@ -95,7 +117,7 @@ async def cmd_new_campaign(message: Message, state: FSMContext):
     await message.answer("What is the <b>topic</b> of your campaign?\n\nExample: <i>Launch of sustainable coffee brand</i>")
 
 
-@router.message(CampaignCreation.waiting_for_topic)
+@router.message(CampaignCreation.waiting_for_topic, ~F.text.startswith("/"))
 async def process_topic(message: Message, state: FSMContext):
     topic = message.text.strip()
     await state.update_data(topic=topic)
@@ -108,7 +130,7 @@ async def process_topic(message: Message, state: FSMContext):
     )
 
 
-@router.message(CampaignCreation.waiting_for_confirmation)
+@router.message(CampaignCreation.waiting_for_confirmation, ~F.text.startswith("/"))
 async def process_confirmation(message: Message, state: FSMContext):
     if message.text.lower() not in ["yes", "y"]:
         await state.clear()
@@ -126,8 +148,7 @@ async def process_confirmation(message: Message, state: FSMContext):
 
     try:
         prompt = get_phase_prompt("research", topic=topic, platform="multi")
-        resp = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        content = resp['message']['content']
+        content = await llm_generate_async(prompt)
 
         await save_message(campaign_id, "assistant", content, "research")
         await message.answer(content[:3800])
@@ -179,8 +200,7 @@ async def cmd_social(message: Message):
 
     try:
         prompt = get_phase_prompt("social_copy", topic=campaign["topic"], tone="engaging and direct")
-        resp = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        content = resp["message"]["content"]
+        content = await llm_generate_async(prompt)
         await save_message(campaign["id"], "assistant", content, "social_copy")
 
         if len(content) > 3800:

@@ -11,6 +11,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import os
+from dotenv import load_dotenv
+
+load_dotenv(override=False)
 
 from database import (
     init_db,
@@ -26,16 +29,20 @@ from database import (
     create_campaign,
     get_current_campaign,
     save_message,
+    get_setting,
+    set_setting,
+    get_all_settings,
 )
 from auth import (
     require_auth,
     check_credentials,
     create_token,
+    get_password_hash,
     NotAuthenticatedException,
     COOKIE_NAME,
 )
 
-import ollama
+from llm import generate_async as llm_generate_async, set_provider as llm_set_provider, get_current_provider
 from campaign_protocol import get_phase_prompt
 
 @asynccontextmanager
@@ -66,7 +73,7 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def login(username: str = Form(...), password: str = Form(...)):
-    if check_credentials(username, password):
+    if await check_credentials(username, password):
         token = create_token(username)
         response = RedirectResponse("/", status_code=302)
         response.set_cookie(COOKIE_NAME, token, httponly=True, max_age=86400)
@@ -109,8 +116,7 @@ async def create_new_campaign(topic: str = Form(...), username: str = Depends(re
     
     prompt = get_phase_prompt("research", topic=topic, platform="multi")
     try:
-        resp = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        content = resp["message"]["content"]
+        content = await llm_generate_async(prompt)
         await save_message(campaign_id, "assistant", content, phase="research")
     except Exception as e:
         await save_message(campaign_id, "assistant", f"Error: {str(e)}", phase="research")
@@ -136,8 +142,7 @@ async def continue_campaign(campaign_id: int, phase: str = Form(...), username: 
     prompt = get_phase_prompt(phase, topic=topic, platform="multi")
     
     try:
-        resp = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        content = resp["message"]["content"]
+        content = await llm_generate_async(prompt)
         await save_message(campaign_id, "assistant", content, phase=phase)
     except Exception as e:
         await save_message(campaign_id, "assistant", f"Error running phase: {str(e)}", phase=phase)
@@ -217,6 +222,61 @@ async def cancel_schedule_post(post_id: int, username: str = Depends(require_aut
         sched_module.campaign_scheduler.cancel_job(f"post_{post_id}")
         sched_module.campaign_scheduler.cancel_job(f"recurring_{post_id}")
     return RedirectResponse("/schedule", status_code=302)
+
+
+# ==================== SETTINGS ====================
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request, username: str = Depends(require_auth)):
+    settings = await get_all_settings()
+    return templates.TemplateResponse("settings.html", {
+        "request": request, "settings": settings, "title": "Settings", "username": username,
+        "current_provider": get_current_provider(),
+    })
+
+
+@app.post("/settings/password")
+async def change_password(
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    username: str = Depends(require_auth),
+):
+    if new_password != confirm_password:
+        return RedirectResponse("/settings?error=passwords-dont-match", status_code=302)
+    if len(new_password) < 6:
+        return RedirectResponse("/settings?error=password-too-short", status_code=302)
+
+    valid = await check_credentials(username, current_password)
+    if not valid:
+        return RedirectResponse("/settings?error=current-password-wrong", status_code=302)
+
+    hashed = get_password_hash(new_password)
+    await set_setting("password_hash", hashed)
+    return RedirectResponse("/settings?ok=password-changed", status_code=302)
+
+
+@app.post("/settings/llm")
+async def update_llm(
+    llm_provider: str = Form(...),
+    ollama_model: str = Form("llama3.1:8b"),
+    xai_model: str = Form("grok-3-mini-beta"),
+    username: str = Depends(require_auth),
+):
+    await set_setting("llm_provider", llm_provider)
+    await set_setting("ollama_model", ollama_model)
+    await set_setting("xai_model", xai_model)
+    llm_set_provider(llm_provider)
+    return RedirectResponse("/settings?ok=llm-updated", status_code=302)
+
+
+@app.post("/settings/timezone")
+async def update_timezone(
+    timezone: str = Form(...),
+    username: str = Depends(require_auth),
+):
+    await set_setting("timezone", timezone)
+    return RedirectResponse("/settings?ok=timezone-updated", status_code=302)
 
 
 @app.exception_handler(NotAuthenticatedException)
