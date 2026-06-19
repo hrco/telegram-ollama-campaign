@@ -11,6 +11,11 @@ DB_PATH = os.getenv("DB_PATH", "campaigns.db")
 
 
 async def init_db():
+    """
+    Initialize the database schema with required tables for CampaignOS v2.
+    
+    Creates the following tables if they do not exist: users, campaigns, messages, channels, scheduled_posts, send_analytics, and user_settings.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -99,6 +104,16 @@ async def get_or_create_user(user_id: int, username: Optional[str] = None) -> Di
 
 
 async def create_campaign(user_id: int, topic: str) -> int:
+    """
+    Creates a new campaign for a user and sets it as the user's current campaign.
+    
+    Parameters:
+    	user_id (int): The user ID associated with the campaign
+    	topic (str): The campaign topic or subject
+    
+    Returns:
+    	int: The ID of the newly created campaign
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         now = datetime.now(timezone.utc).isoformat()
         cursor = await db.execute(
@@ -128,6 +143,13 @@ async def get_current_campaign(user_id: int) -> Optional[Dict]:
 
 
 async def save_message(campaign_id: int, role: str, content: str, phase: Optional[str] = None):
+    """
+    Persist a message record for a campaign.
+    
+    Parameters:
+    	role (str): The message sender role
+    	phase (str, optional): Additional phase information
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         now = datetime.now(timezone.utc).isoformat()
         await db.execute(
@@ -160,6 +182,12 @@ async def list_user_campaigns(user_id: int) -> List[Dict]:
 # ==================== CHANNEL CRUD ====================
 
 async def add_channel(chat_id: str, name: str) -> int:
+    """
+    Ensures a channel exists for the given chat id and returns its id.
+    
+    Returns:
+        The id of the channel.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         now = datetime.now(timezone.utc).isoformat()
         cursor = await db.execute(
@@ -277,6 +305,9 @@ async def update_post_status(post_id: int, status: str, sent_at: Optional[str] =
 
 
 async def record_send_analytics(post_id: int, telegram_message_id: Optional[int], status: str):
+    """
+    Record the delivery status and message ID for a scheduled post sent to Telegram.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         now = datetime.now(timezone.utc).isoformat()
         await db.execute(
@@ -288,7 +319,12 @@ async def record_send_analytics(post_id: int, telegram_message_id: Optional[int]
 
 
 async def list_pending_scheduled_posts() -> List[Dict]:
-    """Pending posts with the fields the scheduler needs to (re)register jobs."""
+    """
+    Retrieve scheduled posts with pending status.
+    
+    Returns:
+        A list of dicts, each containing `id`, `scheduled_at`, and `recurring_cron`.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             """SELECT id, scheduled_at, recurring_cron
@@ -302,6 +338,12 @@ async def list_pending_scheduled_posts() -> List[Dict]:
 # ==================== USER SETTINGS ====================
 
 async def get_setting(key: str, default: Optional[str] = None) -> Optional[str]:
+    """
+    Retrieve a user setting value by key.
+    
+    Returns:
+        Optional[str]: The setting value if found, otherwise the default value.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             "SELECT value FROM user_settings WHERE key = ?", (key,)
@@ -311,6 +353,9 @@ async def get_setting(key: str, default: Optional[str] = None) -> Optional[str]:
 
 
 async def set_setting(key: str, value: str):
+    """
+    Store a user setting with the given key and value.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             "INSERT OR REPLACE INTO user_settings (key, value) VALUES (?, ?)",
@@ -320,6 +365,12 @@ async def set_setting(key: str, value: str):
 
 
 async def get_all_settings() -> Dict[str, str]:
+    """
+    Retrieve all stored user settings.
+    
+    Returns:
+        A dictionary mapping setting keys to their values.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("SELECT key, value FROM user_settings")
         rows = await cursor.fetchall()
@@ -327,6 +378,12 @@ async def get_all_settings() -> Dict[str, str]:
 
 
 async def get_dashboard_stats() -> Dict:
+    """
+    Retrieve aggregated statistics for the dashboard.
+    
+    Returns:
+    	A dictionary with `total_campaigns`, `posts_scheduled`, `posts_sent`, and `channels_connected` keys, each mapping to an integer count.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         c1 = await db.execute("SELECT COUNT(*) FROM campaigns")
         c2 = await db.execute("SELECT COUNT(*) FROM scheduled_posts WHERE status = 'pending'")

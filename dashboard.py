@@ -73,6 +73,12 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def login(username: str = Form(...), password: str = Form(...)):
+    """
+    Authenticate a user with form-submitted credentials.
+    
+    Returns:
+        A redirect to the dashboard with a session cookie on successful authentication, or to the login page with an error parameter on failure.
+    """
     if await check_credentials(username, password):
         token = create_token(username)
         response = RedirectResponse("/", status_code=302)
@@ -112,6 +118,12 @@ async def list_campaigns(request: Request, username: str = Depends(require_auth)
 
 @app.post("/campaign/new")
 async def create_new_campaign(topic: str = Form(...), username: str = Depends(require_auth)):
+    """
+    Create a new campaign and generate an initial research phase message via LLM.
+    
+    Returns:
+        A redirect response to the newly created campaign's detail page.
+    """
     campaign_id = await create_campaign(1, topic)
     
     prompt = get_phase_prompt("research", topic=topic, platform="multi")
@@ -136,6 +148,11 @@ async def campaign_detail(request: Request, campaign_id: int, username: str = De
 
 @app.post("/campaign/{campaign_id}/continue")
 async def continue_campaign(campaign_id: int, phase: str = Form(...), username: str = Depends(require_auth)):
+    """
+    Generate and save content for the next phase of a campaign.
+    
+    Content is generated using the configured LLM. If generation fails, the error is saved as an assistant message instead of being raised.
+    """
     campaign = await get_current_campaign(1)
     topic = campaign["topic"] if campaign else "Campaign"
     
@@ -216,6 +233,9 @@ async def create_schedule_post(
 
 @app.post("/schedule/{post_id}/cancel")
 async def cancel_schedule_post(post_id: int, username: str = Depends(require_auth)):
+    """
+    Cancel a scheduled post and remove its associated scheduler jobs.
+    """
     await update_post_status(post_id, "cancelled")
     import scheduler as sched_module
     if sched_module.campaign_scheduler:
@@ -228,6 +248,12 @@ async def cancel_schedule_post(post_id: int, username: str = Depends(require_aut
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request, username: str = Depends(require_auth)):
+    """
+    Render the settings page with current application settings and LLM provider configuration.
+    
+    Returns:
+        TemplateResponse: The rendered settings.html template with application settings and current LLM provider.
+    """
     settings = await get_all_settings()
     filtered_settings = {k: v for k, v in settings.items() if k != "password_hash"}
     return templates.TemplateResponse("settings.html", {
@@ -243,6 +269,16 @@ async def change_password(
     confirm_password: str = Form(...),
     username: str = Depends(require_auth),
 ):
+    """
+    Update the user's password after validating credentials and password confirmation.
+    
+    Validates that the new password matches the confirmation, is at least 6 characters long, and that the current password is correct. Upon success, hashes and persists the new password. Redirects to /settings with appropriate status query parameters indicating success or validation failure.
+    
+    Parameters:
+        current_password: The user's current password for verification
+        new_password: The new password to set
+        confirm_password: Confirmation of the new password
+    """
     if new_password != confirm_password:
         return RedirectResponse("/settings?error=passwords-dont-match", status_code=302)
     if len(new_password) < 6:
@@ -264,8 +300,12 @@ async def update_llm(
     xai_model: str = Form("grok-3-mini-beta"),
     username: str = Depends(require_auth),
 ):
-    llm_set_provider(llm_provider)
-    llm_set_models(ollama_model=ollama_model, xai_model=xai_model)
+    """
+    Persist LLM provider and model configuration settings and activate the new provider.
+    
+    Returns:
+        A redirect response to the settings page with a success indicator.
+    """
     await set_setting("llm_provider", llm_provider)
     await set_setting("ollama_model", ollama_model)
     await set_setting("xai_model", xai_model)
@@ -277,10 +317,19 @@ async def update_timezone(
     timezone: str = Form(...),
     username: str = Depends(require_auth),
 ):
+    """
+    Update the user's timezone setting.
+    
+    Returns:
+        RedirectResponse: Redirects to settings with a success indicator
+    """
     await set_setting("timezone", timezone)
     return RedirectResponse("/settings?ok=timezone-updated", status_code=302)
 
 
 @app.exception_handler(NotAuthenticatedException)
 async def auth_exception_handler(request: Request, exc: NotAuthenticatedException):
+    """
+    Redirect unauthenticated users to the login page.
+    """
     return RedirectResponse("/login", status_code=302)

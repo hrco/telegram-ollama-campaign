@@ -32,6 +32,12 @@ MOCK_LLM_RESPONSE = "This is a mocked LLM response for testing."
 
 @pytest.fixture
 def client():
+    """
+    Provide a test client with authentication bypassed.
+    
+    Yields:
+    	TestClient: A test client for the FastAPI app with require_auth overridden to always return "admin".
+    """
     from dashboard import app
     from auth import require_auth
     app.dependency_overrides[require_auth] = lambda: "admin"
@@ -44,6 +50,9 @@ def client():
 def test_dashboard_create_campaign_calls_llm(mock_generate, client):
     mock_generate.return_value = MOCK_LLM_RESPONSE
     async def seed():
+        """
+        Initialize the test database with a default test user.
+        """
         await init_db()
         await get_or_create_user(1, "testuser")
 
@@ -68,6 +77,12 @@ def test_dashboard_create_campaign_calls_llm(mock_generate, client):
 def test_dashboard_continue_campaign_calls_llm(mock_generate, client):
     mock_generate.return_value = MOCK_LLM_RESPONSE
     async def seed():
+        """
+        Initialize the test database with a user and campaign.
+        
+        Returns:
+            The ID of the created campaign.
+        """
         await init_db()
         await get_or_create_user(1, "testuser")
         return await create_campaign(1, "Continue test")

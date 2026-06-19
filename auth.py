@@ -30,6 +30,12 @@ def create_token(username: str) -> str:
 
 
 def verify_token(token: str) -> Optional[str]:
+    """
+    Verify a JWT token and extract the authenticated username.
+    
+    Returns:
+    	str or None: The authenticated username if the token is valid, `None` if the token is expired or invalid
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload.get("sub")
@@ -38,6 +44,15 @@ def verify_token(token: str) -> Optional[str]:
 
 
 async def check_credentials(username: str, password: str) -> bool:
+    """
+    Validate admin user credentials.
+    
+    Verifies that the username matches the admin username and the password
+    is correct (either against a stored hash or against a fallback plaintext value).
+    
+    Returns:
+    	bool: True if credentials are valid, False otherwise.
+    """
     if username != ADMIN_USERNAME:
         return False
     from database import get_setting
