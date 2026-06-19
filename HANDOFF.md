@@ -9,57 +9,49 @@
 
 ## TL;DR — where we actually are
 
-**(Updated 2026-06-12.)** P0.1–P0.5 and P1 (mobile-first UI, vendored assets) are **done and
-committed**; **19/19 tests pass**. The app runs end-to-end: `python main.py` starts bot +
-dashboard + scheduler in one process. The bot's live handle is **@campaignos_bot**
-(id 8976060475). On this box the dashboard runs on **port 8001** (`DASHBOARD_PORT` in `.env`)
-because the `nopanic-icecast` Docker container permanently owns 8000.
+**(Updated 2026-06-19.)** All v2 features are shipped, merged, and running:
 
-**There is uncommitted in-flight work in the working tree** (an LLM provider abstraction,
-`llm.py`) that is **broken as it stands** — see the 2026-06-12 status block below. Finish or
-revert it before anything else.
+- Bot (@campaignos_bot, id 8976060475) — locked to admin only via `ADMIN_TELEGRAM_ID`
+- Dashboard on port 8001 — JWT auth, settings (password/LLM/timezone), campaign CRUD, channel management, scheduling, broadcasting
+- LLM provider abstraction: Ollama (default, local) / xAI (optional, paid)
+- 22 tests, **20 pass, 2 broken** (test_llm_integration mocks stale import names after refactor)
+- CodeRabbit reviews addressed (F.text guards, provider validation, auth hash logic, etc.)
+- Admin-only lock, launch copy kit, PRs #1-#4 merged
+
+**Running now** with `OLLAMA_MODEL=phi3:mini` on this box (dashboard:8001).
 
 ---
 
-## STATUS 2026-06-12 — instructions for Hermes (start here)
+## STATUS 2026-06-19 — what's next
 
-Worktree is dirty: new `llm.py` (ollama/xai provider switch) + matching edits in `bot.py`,
-`dashboard.py`, `requirements.txt`, `.env.example`, plus an unrelated guardrail edit in
-`campaign_protocol.py` and the untracked `docs/launch-copy.md`. Tests are green (19/19) but
-**only because no test covers the generate path** — do not read green as working.
+### Broken tests (blocker before next PR)
 
-**Do these in order:**
+`test_dashboard_create_campaign_calls_llm` and `test_dashboard_continue_campaign_calls_llm`
+still patch the old import path `dashboard.llm_generate_async`. Fix the mock targets or
+rebind the import name in `dashboard.py`.
 
-1. **Fix the `llm.generate()` return-type bug (blocker).** `llm.generate()` returns a plain
-   `str`, but every caller still unwraps the old ollama dict shape —
-   `resp['message']['content']` in `bot.py` (×2) and `dashboard.py` (×2). Every campaign /
-   social-copy generation crashes with `TypeError` at runtime. Decide one contract (plain
-   `str` is cleaner), fix callers, and add a test that monkeypatches the provider and
-   exercises one bot and one dashboard generate path — that's the missing coverage that let
-   this slip.
-2. **Fix `requirements.txt` (blocker).** Last line is mangled: `pytest-asyncio>=0.23openai>=1.0`
-   — missing newline. Split into two lines.
-3. **Get a human call on the xAI provider before committing it.** Project CLAUDE.md says
-   **local-first, no cloud-LLM dependency in the runtime** — an `LLM_PROVIDER=xai` path with
-   a paid `XAI_API_KEY` cuts against that and brushes the **no-real-spend** red line. Ollama
-   stays the default either way. Ask the founder: ship it as an optional escape hatch (and
-   amend CLAUDE.md), or revert `llm.py` and keep the runtime pure-local. Don't silently merge.
-4. **Commit in separate logical commits** once green: (a) the `campaign_protocol.py`
-   social-copy guardrail ("do NOT invent statistics…") — this closes a known TODO, it's
-   independent of llm.py; (b) `docs/launch-copy.md` (`docs:`); (c) the provider abstraction
-   if approved (`feat:`), bugs fixed, with its tests.
-5. **P0.6 manual smoke** — the only unchecked P0. Needs live Ollama + a real Telegram channel
-   the bot admins: login at `http://localhost:8001` → create campaign → `/social` in Telegram
-   → add channel → schedule a post 2 min out → confirm broadcast + `send_analytics` row.
-   Follow the checklist in P0.6 below.
-6. **Token rotation is still pending (human-only).** The bot token was once leaked and scrubbed
-   from history; the founder must revoke/rotate via BotFather, then update `.env` and restart.
-   Don't print the token anywhere; verify it with `getMe` returning the bot id only.
+### Grok 4.3 audit findings (see docs/superpowers/summary/2026-06-19-status-and-grok-audit.md)
 
-**Operational notes:** run everything from `.venv` (`source .venv/bin/activate`). The app was
-last started manually in a Claude Code session (not supervised) — assume it's down and start
-it yourself; logs were going to `/tmp/campaignos.log`. A systemd user service with
-`EnvironmentFile=.env` (chmod 600) would be the durable fix and is worth proposing.
+**Top 5 features CampaignOS is missing to be a real "marketing OS":**
+1. Attribution & funnel analytics (click tracking, conversion events, per-campaign ROI)
+2. Audience segmentation (engaged vs silent, exclusion lists)
+3. Content approval workflow (human-in-the-loop before broadcast)
+4. Compliance/spam risk tooling (rate limiting, duplicate detection)
+5. Export + CRM handoff (CSV + webhook)
+
+**One differentiator:** Local private campaign memory — semantic search over every sent message + performance data. "Never repeat these 3 Q3 angles that underperformed" without uploading data anywhere.
+
+### Proposed: `/brand` command via xbridge
+
+Generate a full brand kit from Telegram: 9 logo concepts (`grok-image-generate`), color palette, taglines, visual direction brief. See the summary doc for full FSM flow and prompt templates.
+
+### P0.6 smoke still pending
+
+Needs a real Telegram channel the bot is admin of. The bot is running at @campaignos_bot — confirm it's admin of a channel, then test schedule → broadcast.
+
+### Token rotation (human-only, still pending)
+
+Bot token was leaked and scrubbed from git history. Rotate via BotFather, update `.env`, restart.
 
 ---
 
@@ -91,6 +83,7 @@ it yourself; logs were going to `/tmp/campaignos.log`. A systemd user service wi
 These were real bugs / missing wiring found by reading the code on 2026-06-11.
 
 ### P0.1 — `dashboard.py` crashes on campaign routes (missing imports)
+
 `dashboard.py` calls `create_campaign`, `save_message`, and `get_current_campaign` in the
 `/campaign/new` and `/campaign/{id}/continue` handlers, but **never imports them** — these
 routes 500 with `NameError` the moment they're hit.
@@ -98,6 +91,7 @@ routes 500 with `NameError` the moment they're hit.
 - Then actually exercise the routes (see P0.6) — don't trust the import fix alone.
 
 ### P0.2 — Bot advertises `/social` and `/channels` but has no handlers
+
 `bot.py`'s `/start` and `/help` text list `/social` and `/channels`, but **no handler exists**
 for either (only start/help/new/campaigns/resume are wired). The `social_copy` phase *is*
 defined in `campaign_protocol.py`, so the prompt is ready — just the command is missing.
@@ -105,12 +99,14 @@ defined in `campaign_protocol.py`, so the prompt is ready — just the command i
   Ollama and saves the message; `/channels` lists `list_channels()`).
 
 ### P0.3 — No GET route for campaign detail
+
 `templates/campaign_detail.html` exists but **nothing serves it** — there is no
 `@app.get("/campaign/{campaign_id}")` route, so every "open campaign" link 404s.
 - Add the GET route: load the campaign + its messages (`get_campaign_messages`) and render
   `campaign_detail.html`. This is the screen where a user reads research/content/social output.
 
 ### P0.4 — Cannot schedule or broadcast from the UI (core value prop is missing)
+
 There is a `GET /schedule` page but **no `POST /schedule/new` and no `POST /schedule/{id}/cancel`**,
 and the dashboard never touches the scheduler. So scheduled posts can't be created, and the
 broadcaster is never invoked from the product — only from tests.
@@ -120,6 +116,7 @@ broadcaster is never invoked from the product — only from tests.
   that POSTs to `/schedule/new`. Without this there is no path from generated copy → channel.
 
 ### P0.5 — `main.py` startup is fragile / double-inits, scheduler not bound to the bot
+
 `main.py` runs the bot polling loop and the dashboard concurrently, but:
 - `init_db()` runs in both `main()` and the dashboard's own `@app.on_event("startup")`.
 - `dashboard.py` still uses the deprecated `@app.on_event("startup")` instead of the lifespan
@@ -135,6 +132,7 @@ broadcaster is never invoked from the product — only from tests.
   and confirms the scheduler is `running`.
 
 ### P0.6 — Manual end-to-end smoke before declaring P0 done
+
 With Ollama running locally and a real channel the bot is admin of:
 1. `python main.py` → open `http://localhost:8000` → redirected to `/login` → sign in.
 2. Create a campaign → research renders → open its detail page (P0.3).
@@ -208,6 +206,7 @@ Can run alongside P0/P1 since it doesn't touch the runtime:
   `superpowers:dispatching-parallel-agents`.
 
 ## Definition of done for "promotable"
+
 Fresh clone → `make setup` → `.env` filled → `python main.py` → a non-technical person can log
 in, generate a campaign + social copy, connect a channel, schedule a post, and watch it
 broadcast — on a UI that looks intentional in a screenshot. Full suite green. No secrets in git.

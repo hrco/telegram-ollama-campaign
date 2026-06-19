@@ -4,6 +4,7 @@ Professional marketing campaign assistant with proper error handling
 """
 
 import os
+import sys
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, Router, F
@@ -32,16 +33,38 @@ logger = logging.getLogger(__name__)
 load_dotenv(override=False)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
 if not TELEGRAM_TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN is missing!")
-    exit(1)
+    sys.exit(1)
+
+if ADMIN_TELEGRAM_ID:
+    ADMIN_TELEGRAM_ID = ADMIN_TELEGRAM_ID.strip()
+    if not ADMIN_TELEGRAM_ID.isdigit():
+        logger.error(f"ADMIN_TELEGRAM_ID must be a numeric user ID, got: {ADMIN_TELEGRAM_ID!r}")
+        sys.exit(1)
 
 bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 router = Router()
 dp.include_router(router)
+
+_notified_users = set()
+
+@router.message.outer_middleware
+async def admin_only_middleware(handler, event: Message, data):
+    if not ADMIN_TELEGRAM_ID:
+        return await handler(event, data)
+    if not event.from_user:
+        return await handler(event, data)
+    user_id = str(event.from_user.id)
+    if user_id == ADMIN_TELEGRAM_ID:
+        return await handler(event, data)
+    if user_id not in _notified_users:
+        _notified_users.add(user_id)
+        await event.answer("🔒 This bot is private. Only the admin can use it.")
 
 
 # ==================== ERROR HANDLER ====================
@@ -66,6 +89,9 @@ async def error_handler(event, exception):
 # ==================== COMMANDS ====================
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
+    """
+    Send a welcome message with available commands and dashboard information.
+    """
     await state.clear()
     await get_or_create_user(message.from_user.id, message.from_user.username)
     await message.answer(
@@ -85,6 +111,9 @@ async def cmd_start(message: Message, state: FSMContext):
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
+    """
+    Send the help message explaining bot usage, available commands, and dashboard features.
+    """
     await message.answer(
         "📋 <b>CampaignOS — How it works</b>\n\n"
         "This bot + dashboard helps you plan, write, schedule, and broadcast "
@@ -113,12 +142,20 @@ async def cmd_help(message: Message):
 
 @router.message(Command("new"))
 async def cmd_new_campaign(message: Message, state: FSMContext):
+    """
+    Initiate a new campaign creation flow and request the campaign topic from the user.
+    """
     await state.set_state(CampaignCreation.waiting_for_topic)
     await message.answer("What is the <b>topic</b> of your campaign?\n\nExample: <i>Launch of sustainable coffee brand</i>")
 
 
 @router.message(CampaignCreation.waiting_for_topic, F.text, ~F.text.startswith("/"))
 async def process_topic(message: Message, state: FSMContext):
+    """
+    Store the campaign topic and request confirmation to start research.
+    
+    Saves the topic to the FSM context and prompts the user to confirm they want to begin the research phase.
+    """
     topic = message.text.strip()
     await state.update_data(topic=topic)
     await state.set_state(CampaignCreation.waiting_for_confirmation)
@@ -132,6 +169,13 @@ async def process_topic(message: Message, state: FSMContext):
 
 @router.message(CampaignCreation.waiting_for_confirmation, F.text, ~F.text.startswith("/"))
 async def process_confirmation(message: Message, state: FSMContext):
+    """
+    Processes user confirmation to create a marketing campaign and run the initial research phase.
+    
+    If the user does not confirm with "yes" or "y", campaign creation is cancelled. If confirmed,
+    a new campaign is created for the user, the AI-driven research phase is executed, and the generated
+    research content is saved and sent to the user. Clears the FSM state upon completion or cancellation.
+    """
     if message.text.lower() not in ["yes", "y"]:
         await state.clear()
         await message.answer("Campaign creation cancelled.")
@@ -148,7 +192,7 @@ async def process_confirmation(message: Message, state: FSMContext):
 
     try:
         prompt = get_phase_prompt("research", topic=topic, platform="multi")
-        content = await llm_generate(prompt)
+        content = await llm_generate_async(prompt)
 
         await save_message(campaign_id, "assistant", content, "research")
         await message.answer(content[:3800])
@@ -191,6 +235,11 @@ async def cmd_resume(message: Message):
 
 @router.message(Command("social"))
 async def cmd_social(message: Message):
+    """
+    Generates social media copy for the user's active campaign.
+    
+    Notifies the user if no active campaign is found.
+    """
     campaign = await get_current_campaign(message.from_user.id)
     if not campaign:
         await message.answer("No active campaign. Use /new to start one.")
