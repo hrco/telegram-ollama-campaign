@@ -11,6 +11,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import os
+from dotenv import load_dotenv
+
+load_dotenv(override=False)
 
 from database import (
     init_db,
@@ -39,7 +42,7 @@ from auth import (
     COOKIE_NAME,
 )
 
-from llm import generate as llm_generate, set_provider as llm_set_provider, get_current_provider
+from llm import generate_async as llm_generate_async, set_provider as llm_set_provider, get_current_provider
 from campaign_protocol import get_phase_prompt
 
 @asynccontextmanager
@@ -113,7 +116,7 @@ async def create_new_campaign(topic: str = Form(...), username: str = Depends(re
     
     prompt = get_phase_prompt("research", topic=topic, platform="multi")
     try:
-        content = llm_generate(prompt)
+        content = await llm_generate_async(prompt)
         await save_message(campaign_id, "assistant", content, phase="research")
     except Exception as e:
         await save_message(campaign_id, "assistant", f"Error: {str(e)}", phase="research")
@@ -139,7 +142,7 @@ async def continue_campaign(campaign_id: int, phase: str = Form(...), username: 
     prompt = get_phase_prompt(phase, topic=topic, platform="multi")
     
     try:
-        content = llm_generate(prompt)
+        content = await llm_generate_async(prompt)
         await save_message(campaign_id, "assistant", content, phase=phase)
     except Exception as e:
         await save_message(campaign_id, "assistant", f"Error running phase: {str(e)}", phase=phase)
